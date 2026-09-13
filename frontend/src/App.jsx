@@ -7,11 +7,21 @@ function App() {
   const [tasks, setTasks] = useState([])
   const [assignments, setAssignments] = useState([])
   const [schedulerMessage, setSchedulerMessage] = useState("")
-
+  const [isScheduling, setIsScheduling] = useState(false)
   const [activePage, setActivePage] = useState("Dashboard")
+  const [developerName, setDeveloperName] = useState("")
+  const [developerHours, setDeveloperHours] = useState("")
+  const [developerSkills, setDeveloperSkills] = useState("")
+  const [taskName, setTaskName] = useState("")
+  const [taskSkill, setTaskSkill] = useState("")
+  const [taskPriority, setTaskPriority] = useState("")
+  const [taskHours, setTaskHours] = useState("")
+  const [taskDeadline, setTaskDeadline] = useState("")
+  const [dependencyTask, setDependencyTask] = useState("")
+  const [dependencyOn, setDependencyOn] = useState("")
+  const [dependencies, setDependencies] = useState([])
 
-
-  useEffect(() => {
+  const loadData = () => {
 
     fetch("http://127.0.0.1:8000/developers")
       .then(response => response.json())
@@ -25,6 +35,16 @@ function App() {
       .then(response => response.json())
       .then(data => setAssignments(data))
 
+    fetch("http://127.0.0.1:8000/dependencies")
+      .then(response => response.json())
+      .then(data => setDependencies(data))
+  }
+
+
+  useEffect(() => {
+
+    loadData()
+
   }, [])
 
 
@@ -36,7 +56,27 @@ function App() {
     task => task.status === "Pending"
   )
 
+  const totalAvailableHours = developers.reduce(
+    (total, developer) =>
+      total + developer.available_hours,
+    0
+  )
+
+  const totalAssignedHours = developers.reduce(
+    (total, developer) =>
+      total + developer.assigned_hours,
+    0
+  )
+
+  const totalRemainingHours = developers.reduce(
+    (total, developer) =>
+      total + developer.remaining_hours,
+    0
+  )
+
   const handleRunScheduler = async () => {
+
+    setIsScheduling(true)
 
     try {
 
@@ -58,7 +98,8 @@ function App() {
       )
 
       setTimeout(() => {
-        window.location.reload()
+        loadData()
+        setIsScheduling(false)
       }, 1800)
 
     } catch (error) {
@@ -66,9 +107,128 @@ function App() {
       setSchedulerMessage(
         "Could not run the scheduler. Check that FastAPI is running."
       )
+
+      setIsScheduling(false)
     }
   }
+  const handleAddDeveloper = async (event) => {
 
+    event.preventDefault()
+
+    const skills = developerSkills
+      .split(",")
+      .map(skill => skill.trim())
+      .filter(skill => skill !== "")
+
+    try {
+
+      const response = await fetch(
+        "http://127.0.0.1:8000/developers",
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json"
+          },
+          body: JSON.stringify({
+            name: developerName,
+            available_hours: Number(developerHours),
+            skills: skills
+          })
+        }
+      )
+
+      if (!response.ok) {
+        throw new Error("Failed to add developer")
+      }
+
+      setDeveloperName("")
+      setDeveloperHours("")
+      setDeveloperSkills("")
+
+      loadData()
+
+    } catch (error) {
+
+      console.error(error)
+
+    }
+  }
+  const handleAddTask = async (event) => {
+
+    event.preventDefault()
+
+    try {
+
+      const response = await fetch(
+        "http://127.0.0.1:8000/tasks",
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json"
+          },
+          body: JSON.stringify({
+            name: taskName,
+            required_skill: taskSkill,
+            priority: taskPriority,
+            hours: Number(taskHours),
+            deadline: taskDeadline
+          })
+        }
+      )
+
+      if (!response.ok) {
+        throw new Error("Failed to add task")
+      }
+
+      setTaskName("")
+      setTaskSkill("")
+      setTaskPriority("")
+      setTaskHours("")
+      setTaskDeadline("")
+
+      loadData()
+
+    } catch (error) {
+
+      console.error(error)
+
+    }
+  }
+  const handleAddDependency = async (event) => {
+
+    event.preventDefault()
+
+    try {
+
+      const response = await fetch(
+        "http://127.0.0.1:8000/dependencies",
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json"
+          },
+          body: JSON.stringify({
+            task_id: Number(dependencyTask),
+            dependency_task_id: Number(dependencyOn)
+          })
+        }
+      )
+
+      if (!response.ok) {
+        throw new Error("Failed to add dependency")
+      }
+
+      setDependencyTask("")
+      setDependencyOn("")
+
+      loadData()
+
+    } catch (error) {
+
+      console.error(error)
+
+    }
+  }
   return (
     <div className="app">
 
@@ -123,8 +283,9 @@ function App() {
           <button
             className="schedule-button"
             onClick={handleRunScheduler}
+            disabled={isScheduling}
           >
-            Run Scheduler
+            {isScheduling ? "Running..." : "Run Scheduler"}
           </button>
           {schedulerMessage && (
             <div className="scheduler-message">
@@ -163,6 +324,21 @@ function App() {
                 <p>{pendingTasks.length}</p>
               </div>
 
+              <div className="stat-card">
+                <h3>Available Hours</h3>
+                <p>{totalAvailableHours}</p>
+              </div>
+
+              <div className="stat-card">
+                <h3>Assigned Hours</h3>
+                <p>{totalAssignedHours}</p>
+              </div>
+
+              <div className="stat-card">
+                <h3>Remaining Hours</h3>
+                <p>{totalRemainingHours}</p>
+              </div>
+
             </section>
 
 
@@ -182,9 +358,9 @@ function App() {
                     <span>{task.name}</span>
 
                     <span
-                      className={`status ${task.status === "Assigned"
-                        ? "assigned"
-                        : "blocked"
+                      className={`status ${task.status
+                        .toLowerCase()
+                        .replaceAll(" ", "-")
                         }`}
                     >
                       {task.status}
@@ -238,6 +414,153 @@ function App() {
           <div className="panel">
 
             <h2>All Tasks</h2>
+            <form onSubmit={handleAddTask} className="task-form">
+
+              <input
+                type="text"
+                placeholder="Task name"
+                value={taskName}
+                onChange={(event) =>
+                  setTaskName(event.target.value)
+                }
+                required
+              />
+
+              <input
+                type="text"
+                placeholder="Required skill"
+                value={taskSkill}
+                onChange={(event) =>
+                  setTaskSkill(event.target.value)
+                }
+                required
+              />
+
+              <select
+                value={taskPriority}
+                onChange={(event) =>
+                  setTaskPriority(event.target.value)
+                }
+                required
+              >
+                <option value="">Select priority</option>
+                <option value="High">High</option>
+                <option value="Medium">Medium</option>
+                <option value="Low">Low</option>
+              </select>
+
+              <input
+                type="number"
+                placeholder="Hours"
+                value={taskHours}
+                onChange={(event) =>
+                  setTaskHours(event.target.value)
+                }
+                min="1"
+                required
+              />
+
+              <input
+                type="date"
+                value={taskDeadline}
+                onChange={(event) =>
+                  setTaskDeadline(event.target.value)
+                }
+                required
+              />
+
+              <button type="submit">
+                Add Task
+              </button>
+
+            </form>
+            <form
+              onSubmit={handleAddDependency}
+              className="dependency-form"
+            >
+
+              <select
+                value={dependencyTask}
+                onChange={(event) =>
+                  setDependencyTask(event.target.value)
+                }
+                required
+              >
+                <option value="">Select task</option>
+
+                {tasks.map(task => (
+                  <option
+                    key={task.id}
+                    value={task.id}
+                  >
+                    {task.name}
+                  </option>
+                ))}
+              </select>
+
+
+              <select
+                value={dependencyOn}
+                onChange={(event) =>
+                  setDependencyOn(event.target.value)
+                }
+                required
+              >
+                <option value="">Depends on</option>
+
+                {tasks.map(task => (
+                  <option
+                    key={task.id}
+                    value={task.id}
+                  >
+                    {task.name}
+                  </option>
+                ))}
+              </select>
+
+
+              <button type="submit">
+                Add Dependency
+              </button>
+
+            </form>
+
+            <div className="panel dependency-panel">
+
+              <h2>Task Dependencies</h2>
+
+              {dependencies.length === 0 ? (
+
+                <p>No dependencies added yet.</p>
+
+              ) : (
+
+                dependencies.map((dependency, index) => (
+
+                  <div
+                    className="dependency-row"
+                    key={index}
+                  >
+
+                    <span>
+                      {dependency.task}
+                    </span>
+
+                    <span>
+                      depends on
+                    </span>
+
+                    <span>
+                      {dependency.depends_on}
+                    </span>
+
+                  </div>
+
+                ))
+
+              )}
+
+            </div>
 
             <table>
 
@@ -287,7 +610,44 @@ function App() {
           <div className="panel">
 
             <h2>Developers</h2>
+            <form onSubmit={handleAddDeveloper} className="developer-form">
 
+              <input
+                type="text"
+                placeholder="Developer name"
+                value={developerName}
+                onChange={(event) =>
+                  setDeveloperName(event.target.value)
+                }
+                required
+              />
+
+              <input
+                type="number"
+                placeholder="Available hours"
+                value={developerHours}
+                onChange={(event) =>
+                  setDeveloperHours(event.target.value)
+                }
+                min="1"
+                required
+              />
+
+              <input
+                type="text"
+                placeholder="Skills (e.g. Python, SQL)"
+                value={developerSkills}
+                onChange={(event) =>
+                  setDeveloperSkills(event.target.value)
+                }
+                required
+              />
+
+              <button type="submit">
+                Add Developer
+              </button>
+
+            </form>
             <table>
 
               <thead>
@@ -296,6 +656,9 @@ function App() {
                   <th>Name</th>
                   <th>Skills</th>
                   <th>Available Hours</th>
+                  <th>Assigned Hours</th>
+                  <th>Remaining Hours</th>
+                  <th>Workload</th>
                 </tr>
 
               </thead>
@@ -315,6 +678,19 @@ function App() {
                     <td>
                       {developer.available_hours}
                     </td>
+
+                    <td>
+                      {developer.assigned_hours}
+                    </td>
+
+                    <td>
+                      {developer.remaining_hours}
+                    </td>
+
+                    <td>
+                      {developer.workload}%
+                    </td>
+
 
                   </tr>
 
@@ -344,6 +720,7 @@ function App() {
                 <tr>
                   <th>Task</th>
                   <th>Developer</th>
+                  <th>Assigned Hours</th>
                 </tr>
 
               </thead>
@@ -360,6 +737,8 @@ function App() {
                       <td>
                         {assignment.developer}
                       </td>
+
+                      <td>{assignment.assigned_hours}</td>
 
                     </tr>
 

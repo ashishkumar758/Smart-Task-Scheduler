@@ -143,24 +143,41 @@ body {
 .task-row {
   display: flex;
   justify-content: space-between;
+  align-items: center;
   padding: 15px 0;
   border-bottom: 1px solid #eee;
 }
 
 .status {
-  font-size: 13px;
-  padding: 5px 10px;
-  border-radius: 15px;
+  padding: 4px 10px;
+  border-radius: 12px;
+  font-size: 12px;
+  font-weight: 600;
 }
 
-.assigned {
-  background: #dcfce7;
-  color: #166534;
+.status.assigned {
+  background: #d1fae5;
+  color: #065f46;
 }
 
-.blocked {
+.status.pending {
+  background: #fef3c7;
+  color: #92400e;
+}
+
+.status.blocked {
   background: #fee2e2;
   color: #991b1b;
+}
+
+.status.cannot-assign {
+  background: #fee2e2;
+  color: #991b1b;
+}
+
+.status.deadline-passed {
+  background: #e5e7eb;
+  color: #374151;
 }
 
 

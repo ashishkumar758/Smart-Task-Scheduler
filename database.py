@@ -270,6 +270,38 @@ def add_dependency(
 
     connection.close()
 
+def get_task_dependencies():
+
+    connection = sqlite3.connect(
+        "smart_scheduler.db"
+    )
+
+    cursor = connection.cursor()
+
+    cursor.execute(
+        """
+        SELECT
+            dependencies.task_id,
+            tasks.name,
+            dependencies.dependency_task_id,
+            dependency_tasks.name
+
+        FROM dependencies
+
+        JOIN tasks
+        ON dependencies.task_id = tasks.id
+
+        JOIN tasks AS dependency_tasks
+        ON dependencies.dependency_task_id = dependency_tasks.id
+        """
+    )
+
+    dependencies = cursor.fetchall()
+
+    connection.close()
+
+    return dependencies
+
 def clear_database():
 
     connection = sqlite3.connect(
@@ -427,7 +459,8 @@ def get_task_assignments():
         """
         SELECT
             tasks.name,
-            developers.name
+            developers.name,
+            task_assignments.assigned_hours
 
         FROM task_assignments
 
@@ -444,6 +477,41 @@ def get_task_assignments():
     connection.close()
 
     return assignments
+
+def get_developer_assigned_hours():
+
+    connection = sqlite3.connect(
+        "smart_scheduler.db"
+    )
+
+    cursor = connection.cursor()
+
+    cursor.execute(
+        """
+        SELECT
+            developer_id,
+            SUM(assigned_hours)
+
+        FROM task_assignments
+
+        GROUP BY developer_id
+        """
+    )
+
+    rows = cursor.fetchall()
+
+    connection.close()
+
+    assigned_hours = {}
+
+    for row in rows:
+
+        developer_id = row[0]
+        hours = row[1]
+
+        assigned_hours[developer_id] = hours
+
+    return assigned_hours
 
 def get_developers_with_skills():
 
